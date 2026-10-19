@@ -334,17 +334,29 @@ def connect_database(uri):
     return client, collection
 
 
-mongo_uri = os.getenv("MONGODB_URI", "").strip()
+# Read the connection string from Streamlit Community Cloud Secrets first,
+# then fall back to the local .env/environment variable for development.
+try:
+    mongo_uri = str(st.secrets.get("MONGODB_URI", "") or "").strip()
+except Exception:
+    # st.secrets may be unavailable when running locally without secrets.toml.
+    mongo_uri = ""
+
+if not mongo_uri:
+    mongo_uri = os.getenv("MONGODB_URI", "").strip()
 
 if not mongo_uri:
     st.error(
-        "MongoDB URI is missing. Add MONGODB_URI to your .env file "
-        "and restart the app."
+        "MongoDB URI is missing. For local development, add MONGODB_URI "
+        "to your .env file. For Streamlit Community Cloud, add MONGODB_URI "
+        "under the app's Settings → Secrets, then reboot the app."
     )
     st.stop()
 
 try:
     client, analyses = connect_database(mongo_uri)
+    # Keep the database handle available to custom-pattern loading below.
+    db = client["scamlens_db"]
 except Exception as exc:
     st.error(
         "Could not connect to MongoDB. Check your Atlas URI, database "
