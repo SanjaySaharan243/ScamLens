@@ -478,6 +478,18 @@ RULES = [
      r"\b(?:gift card|itunes card|google play card|voucher code)\b.{0,80}\b(?:payment|pay|send the code|transfer|fee|tax)\b"),
     ("Unsolicited account recovery service", 20,
      r"\b(?:recover your account|recover hacked account|unblock your account|restore your account)\b.{0,80}\b(?:pay|fee|send otp|share password|deposit)\b"),
+
+    # 14. Unsolicited money, credit, and benefit claims (including common typos)
+    ("Unexpected money or account credit notification", 20,
+     r"\b(?:account|bank account|wallet)\b.{0,70}\b(?:received|recieved|credited|credit|deposited|deposit|added|won|awarded)\b.{0,70}\b(?:money|amount|rupees?|rs\.?|inr|lakh|lakhs|crore|thousand|thousands|\d[\d,]*)\b|\b(?:received|recieved|credited|deposited|won|awarded)\b.{0,60}(?:₹|rs\.?\s*|inr\s*)?\s*\d[\d,]*(?:\s*(?:rupees?|rs\.?|inr|lakh|lakhs|crore))?\b"),
+    ("Request for personal or banking details", 25,
+     r"\b(?:provide|share|send|submit|enter|fill|confirm|verify|update|give)\b.{0,80}\b(?:valid|personal|bank|account|identity|your)?\s*(?:personal\s+|bank\s+|account\s+)?details?\b|\b(?:details?|information|data)\b.{0,70}\b(?:provide|share|send|submit|enter|fill|confirm|verify|update)\b"),
+    ("Claim or unlock money by providing details", 30,
+     r"\b(?:to\s+)?(?:avail|claim|receive|get|withdraw|release|unlock|collect|access)\b.{0,100}\b(?:money|amount|funds?|cash|rupees?|rs\.?|inr|benefit|payment|reward|lakh|lakhs|crore)\b.{0,100}\b(?:details?|information|data|document|account|bank)\b|\b(?:provide|share|submit|verify|update)\b.{0,100}\b(?:details?|information|data)\b.{0,100}\b(?:avail|claim|receive|get|withdraw|release|unlock|collect)\b"),
+    ("Unexpected free money or financial benefit offer", 20,
+     r"\b(?:you have|you got|your account has|your account received|account received|you will receive)\b.{0,80}\b(?:free money|cash benefit|government benefit|subsidy|grant|prize money|rupees?|lakh|lakhs|crore|payment|amount|funds?)\b|\b(?:1|one|2|two|5|five|10|ten)\s*(?:lakh|lakhs|thousand|crore)\b.{0,80}\b(?:receive|received|claim|avail|provide|details?)\b"),
+    ("Suspicious request to validate details to receive money", 30,
+     r"\b(?:valid|correct|complete|verify|verified|update)\b.{0,40}\b(?:details?|information|data|bank details|account details)\b.{0,100}\b(?:avail|receive|get|claim|release|unlock|transfer|credit)\b|\b(?:provide|submit|share|send)\b.{0,70}\b(?:valid|correct|personal|bank|account)?\s*(?:details?|information|data)\b.{0,100}\b(?:money|amount|funds?|rupees?|lakh|lakhs|benefit|payment|avail|claim|receive)\b"),
 ]
 
 
@@ -521,8 +533,31 @@ def get_mongodb_custom_rules():
     return custom_rules
 
 
+def normalize_message_for_detection(message):
+    """Normalize common spelling mistakes before matching rules.
+
+    This is deliberately conservative: it fixes a small set of frequent
+    typos and does not replace the original message shown or saved by the app.
+    """
+    text = str(message or "").strip().lower()
+    corrections = [
+        (r"\bback\s+account\b", "bank account"),
+        (r"\b(?:datail|detial|deatil|detials|datails)\b", "details"),
+        (r"\b(?:recieved|receved|recive|recieve)\b", "received"),
+        (r"\b(?:rupe|rupeee|rupeees)\b", "rupees"),
+        (r"\b(?:availble|avial|avile)\b", "avail"),
+        (r"\b(?:infromation|informtion)\b", "information"),
+        (r"\b(?:persnol|personel)\b", "personal"),
+        (r"\b(?:verfy|varify|verifiy)\b", "verify"),
+    ]
+    for pattern, replacement in corrections:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    return text
+
+
 def analyze_message(message):
-    text = str(message or "").strip()
+    original_text = str(message or "").strip()
+    text = normalize_message_for_detection(original_text)
 
     if not text:
         return {
