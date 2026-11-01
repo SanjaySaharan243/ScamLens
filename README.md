@@ -7,6 +7,7 @@ risk score, explains the signals that matched, and stores analyses in
 MongoDB for later review.
 
 > **Live demo:** https://scamlensweb.streamlit.app/\
+> 
 > **Source code:** https://github.com/SanjaySaharan243/ScamLens
 
 ------------------------------------------------------------------------
